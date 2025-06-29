@@ -3,7 +3,7 @@
   "files": [],
   "references": [
     {
-      "path": "apps/cli"
+      "path": "app"
     },
     {
       "path": "packages/backtesting"
@@ -15,19 +15,10 @@
       "path": "packages/bot-processor"
     },
     {
-      "path": "packages/bot-store"
-    },
-    {
       "path": "packages/bot-templates"
     },
     {
-      "path": "packages/daemon"
-    },
-    {
       "path": "packages/db"
-    },
-    {
-      "path": "packages/eslint"
     },
     {
       "path": "packages/event-bus"
@@ -43,9 +34,6 @@
     },
     {
       "path": "packages/prisma"
-    },
-    {
-      "path": "packages/processing"
     },
     {
       "path": "packages/tools"

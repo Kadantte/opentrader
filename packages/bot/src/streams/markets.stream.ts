@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { TBotWithExchangeAccount } from "@opentrader/db";
 import { findStrategy } from "@opentrader/bot-templates/server";
-import { getWatchers } from "@opentrader/processing";
+import { getWatchers } from "../processing/index.js";
 import {
   CandleClosedMarketEvent,
   OrderbookChangeMarketEvent,
@@ -48,28 +48,34 @@ export class MarketsStream extends EventEmitter {
   }
 
   private subscribe() {
-    const handleCandle = ({ candle, history, marketId }: CandleEvent) => {
+    const handleCandle = ({ candle, history, marketId, isDemoMarket }: CandleEvent) => {
       this.emit("market", {
         type: "onCandleClosed",
         candle,
         candles: history,
         marketId,
+        isDemoMarket,
       } satisfies CandleClosedMarketEvent);
     };
     this.candlesStream.on("candle", handleCandle);
 
-    const handleTrade = ({ trade, marketId }: TradeEvent) => {
-      this.emit("market", { type: "onPublicTrade", trade, marketId } satisfies PublicTradeMarketEvent);
+    const handleTrade = ({ trade, marketId, isDemoMarket }: TradeEvent) => {
+      this.emit("market", { type: "onPublicTrade", trade, marketId, isDemoMarket } satisfies PublicTradeMarketEvent);
     };
     this.tradesStream.on("trade", handleTrade);
 
-    const handleOrderbook = ({ orderbook, marketId }: OrderbookEvent) => {
-      this.emit("market", { type: "onOrderbookChange", orderbook, marketId } satisfies OrderbookChangeMarketEvent);
+    const handleOrderbook = ({ orderbook, marketId, isDemoMarket }: OrderbookEvent) => {
+      this.emit("market", {
+        type: "onOrderbookChange",
+        orderbook,
+        marketId,
+        isDemoMarket,
+      } satisfies OrderbookChangeMarketEvent);
     };
     this.orderbookStream.on("orderbook", handleOrderbook);
 
-    const handleTicker = ({ ticker, marketId }: TickerEvent) => {
-      this.emit("market", { type: "onTickerChange", ticker, marketId } satisfies TickerChangeMarketEvent);
+    const handleTicker = ({ ticker, marketId, isDemoMarket }: TickerEvent) => {
+      this.emit("market", { type: "onTickerChange", ticker, marketId, isDemoMarket } satisfies TickerChangeMarketEvent);
     };
     this.tickerStream.on("ticker", handleTicker);
 

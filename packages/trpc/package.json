@@ -9,28 +9,24 @@
   "author": "bludnic",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@opentrader/eslint": "workspace:*",
     "@opentrader/tsconfig": "workspace:*",
     "@opentrader/types": "workspace:*",
     "@types/node": "^22.10.2",
-    "eslint": "8.57.0",
-    "typescript": "5.7.2"
+    "typescript": "5.8.3"
   },
   "dependencies": {
     "@opentrader/backtesting": "workspace:*",
-    "@opentrader/bot": "workspace:*",
     "@opentrader/bot-processor": "workspace:*",
     "@opentrader/bot-templates": "workspace:*",
     "@opentrader/db": "workspace:*",
     "@opentrader/event-bus": "workspace:*",
     "@opentrader/exchanges": "workspace:*",
     "@opentrader/prisma": "workspace:*",
-    "@opentrader/processing": "workspace:*",
     "@opentrader/tools": "workspace:*",
-    "@trpc/server": "^10.45.2",
-    "ccxt": "4.4.41",
+    "@trpc/server": "^11.4.1",
+    "ccxt": "4.4.91",
     "superjson": "^2.2.2",
-    "zod": "3.24.1",
-    "zod-to-json-schema": "^3.24.1"
+    "zod": "3.25.65",
+    "zod-to-json-schema": "^3.24.5"
   }
 }

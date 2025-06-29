@@ -4,21 +4,21 @@ import { type ExchangeAccountWithCredentials, SmartTradeWithOrders, xprisma } fr
 import { eventBus } from "@opentrader/event-bus";
 import { exchangeProvider, IExchange } from "@opentrader/exchanges";
 import { logger } from "@opentrader/logger";
-import { SmartTradeExecutor } from "@opentrader/processing";
+import { SmartTradeExecutor } from "./processing/index.js";
 import { ITicker } from "@opentrader/types";
-import { TickerWatcher } from "./channels/ticker/ticker.watcher.js";
+import { TickerChannel, TickerEvent } from "./channels/ticker/index.js";
 import { OrderEvent, OrdersStream } from "./streams/orders.stream.js";
 
 type TradeUpdatedEvent = { type: "onTradeUpdated" };
-type TickerEvent = { type: "onTickerChange"; ticker: ITicker };
-type ExchangeEvent = OrderEvent | TickerEvent | TradeUpdatedEvent;
+type TickerChangeEvent = { type: "onTickerChange"; ticker: ITicker };
+type ExchangeEvent = OrderEvent | TickerChangeEvent | TradeUpdatedEvent;
 type QueueEvent = ExchangeEvent & { smartTrade: SmartTradeWithOrders };
 
 export class Trade {
   exchangeAccount: ExchangeAccountWithCredentials;
   exchange: IExchange;
   queue: QueueObject<QueueEvent>;
-  tickerWatcher: TickerWatcher;
+  tickerChannel: TickerChannel;
   destroyed = false;
 
   constructor(
@@ -28,7 +28,7 @@ export class Trade {
     this.exchangeAccount = smartTrade.exchangeAccount as ExchangeAccountWithCredentials; // hacky cast
     this.exchange = exchangeProvider.fromAccount(this.exchangeAccount);
 
-    this.tickerWatcher = new TickerWatcher(this.smartTrade.symbol, this.exchange);
+    this.tickerChannel = new TickerChannel(this.smartTrade.symbol, this.exchange);
 
     this.queue = cargoQueue<QueueEvent>(this.queueHandler);
     this.queue.error((err) => {
@@ -51,6 +51,8 @@ export class Trade {
     const executor = SmartTradeExecutor.create(this.smartTrade, this.exchangeAccount);
     await executor.next();
 
+    this.smartTrade = await this.pull();
+
     // Init only after the initial order was placed
     this.init();
   }
@@ -58,20 +60,21 @@ export class Trade {
   async cancel() {
     this.destroy();
 
+    this.smartTrade = await this.pull();
     const executor = SmartTradeExecutor.create(this.smartTrade, this.exchangeAccount);
     await executor.cancelOrders();
   }
 
   init() {
     this.ordersStream.on("order", this.handleOrderEvent);
-    this.tickerWatcher.on("ticker", this.handleTickerEvent);
-    this.tickerWatcher.enable();
+    this.tickerChannel.on("ticker", this.handleTickerEvent);
+    this.tickerChannel.init();
   }
 
   destroy() {
     this.ordersStream.off("order", this.handleOrderEvent);
-    this.tickerWatcher.off("ticker", this.handleTickerEvent);
-    this.tickerWatcher.disable();
+    this.tickerChannel.off("ticker", this.handleTickerEvent);
+    this.tickerChannel.stop();
     this.queue.kill();
     this.destroyed = true;
   }
@@ -113,8 +116,8 @@ export class Trade {
     void this.queue.push({ ...event, smartTrade: this.smartTrade });
   };
 
-  handleTickerEvent = async (ticker: ITicker) => {
-    void this.queue.push({ type: "onTickerChange", ticker, smartTrade: this.smartTrade });
+  handleTickerEvent = async (event: TickerEvent) => {
+    void this.queue.push({ type: "onTickerChange", ticker: event.ticker, smartTrade: this.smartTrade });
   };
 
   private async pull() {

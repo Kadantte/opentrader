@@ -16,7 +16,14 @@
  * Repository URL: https://github.com/bludnic/opentrader
  */
 import { xprisma } from "@opentrader/db";
-import { AuthenticationError, ExchangeClosedByUser, ExchangeError, NetworkError, RequestTimeout } from "ccxt";
+import {
+  AuthenticationError,
+  ExchangeClosedByUser,
+  ExchangeError,
+  NetworkError,
+  NotSupported,
+  RequestTimeout,
+} from "ccxt";
 import { logger } from "@opentrader/logger";
 import { OrderSynchronizerWatcher } from "./order-synchronizer-watcher.abstract.js";
 import { ExchangeCode } from "@opentrader/types";
@@ -42,7 +49,7 @@ export class OrderSynchronizerWsWatcher extends OrderSynchronizerWatcher {
           const order = await xprisma.order.findByExchangeOrderId(exchangeOrder.exchangeOrderId);
 
           if (!order) {
-            logger.info(`Order "${exchangeOrder.exchangeOrderId}" is not linked to any SmartTrade`);
+            logger.debug(`Order "${exchangeOrder.exchangeOrderId}" is not linked to any SmartTrade`);
             continue;
           }
 
@@ -72,23 +79,44 @@ export class OrderSynchronizerWsWatcher extends OrderSynchronizerWatcher {
           }
 
           if (actualExchangeOrder.status === "open") {
-            this.emit("onPlaced", [actualExchangeOrder, order, this.exchange.exchangeCode as ExchangeCode]);
+            this.emit("onPlaced", [
+              actualExchangeOrder,
+              order,
+              this.exchange.exchangeCode as ExchangeCode,
+              this.exchange.isDemoAccount,
+            ]);
           } else if (actualExchangeOrder.status === "filled") {
             const statusChanged = order.status !== "Filled";
 
             if (statusChanged) {
-              this.emit("onFilled", [actualExchangeOrder, order, this.exchange.exchangeCode as ExchangeCode]);
+              this.emit("onFilled", [
+                actualExchangeOrder,
+                order,
+                this.exchange.exchangeCode as ExchangeCode,
+                this.exchange.isDemoAccount,
+              ]);
             }
           } else if (actualExchangeOrder.status === "canceled") {
             const statusChanged = order.status !== "Canceled";
 
             if (statusChanged) {
-              this.emit("onCanceled", [actualExchangeOrder, order, this.exchange.exchangeCode as ExchangeCode]);
+              this.emit("onCanceled", [
+                actualExchangeOrder,
+                order,
+                this.exchange.exchangeCode as ExchangeCode,
+                this.exchange.isDemoAccount,
+              ]);
             }
           }
         }
       } catch (err) {
-        if (err instanceof AuthenticationError || err instanceof ExchangeError) {
+        if (err instanceof NotSupported) {
+          logger.warn(
+            `[OrderSynchronizerWs] ${this.exchange.name} does not support watchOrders via WS. Polling mechanism will be used.`,
+          );
+          await this.disable();
+          break;
+        } else if (err instanceof AuthenticationError || err instanceof ExchangeError) {
           logger.warn(
             `[OrderSynchronizerWs] API keys for "${this.exchange.name}" have expired or are invalid: ${err.message}`,
           );

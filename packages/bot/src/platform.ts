@@ -7,10 +7,9 @@ import {
 } from "@opentrader/db";
 import { logger } from "@opentrader/logger";
 import { exchangeProvider } from "@opentrader/exchanges";
-import { BotProcessing } from "@opentrader/processing";
+import { BotProcessing } from "./processing/index.js";
 import { eventBus } from "@opentrader/event-bus";
-import { store } from "@opentrader/bot-store";
-import { MarketEvent } from "@opentrader/types";
+import { ExchangeCode, MarketEvent } from "@opentrader/types";
 import { EventEmitter } from "node:events";
 import { MarketsStream } from "./streams/markets.stream.js";
 import { OrderEvent, OrdersStream } from "./streams/orders.stream.js";
@@ -41,7 +40,9 @@ export class Platform {
     const customStrategiesPath = process.env.CUSTOM_STRATEGIES_PATH;
     if (customStrategiesPath) await this.loadCustomStrategies(customStrategiesPath);
 
+    await this.removeDeprecatedExchanges();
     await this.cleanOrphanedBots();
+    await this.cleanOrphanedTrades();
     await this.ordersStream.create();
     await this.marketStream.create();
 
@@ -57,6 +58,22 @@ export class Platform {
     this.marketStream.destroy();
 
     this.unsubscribeFromEventBus();
+  }
+
+  async removeDeprecatedExchanges() {
+    const exchangeCodes = Object.values(ExchangeCode);
+
+    const deprecatedExchanges = await xprisma.exchangeAccount.findMany({
+      where: { exchangeCode: { notIn: exchangeCodes } },
+    });
+
+    if (deprecatedExchanges.length > 0) {
+      logger.warn(`Some exchanges are not supported anymore. Removing exchange accounts…`);
+      for (const exchangeAccount of deprecatedExchanges) {
+        await xprisma.exchangeAccount.delete({ where: { id: exchangeAccount.id } });
+        logger.warn(`Exchange account [${exchangeAccount.exchangeCode}] ${exchangeAccount.name} removed`);
+      }
+    }
   }
 
   /**
@@ -117,6 +134,27 @@ export class Platform {
     if (anyBotEnabled) {
       logger.warn(`[Processor] The previous process was interrupted, there are orphaned bots. Performing cleanup…`);
       await this.stopEnabledBots();
+    }
+  }
+
+  /**
+   * Cleans up trades left in an inconsistent state, e.g. from unexpected bot shutdowns.
+   */
+  async cleanOrphanedTrades() {
+    const tradesCount = await xprisma.smartTrade.count({
+      where: { ref: { not: null } },
+    });
+
+    if (tradesCount > 0) {
+      logger.warn(
+        `Found ${tradesCount} orphaned trades. This usually happens if the bot was stopped unexpectedly or crashed.`,
+      );
+      const result = await xprisma.smartTrade.updateMany({
+        where: { ref: { not: null } },
+        data: { ref: null },
+      });
+
+      logger.info(`Cleaned up ${result.count} orphaned trades.`);
     }
   }
 
@@ -220,10 +258,29 @@ export class Platform {
   }
 
   handleMarketEvent = (event: MarketEvent) => {
-    store.updateMarket(event);
+    //
   };
 
   handleOrderEvent = async (_event: OrderEvent) => {
     //
   };
+}
+
+export async function bootstrapPlatform() {
+  const exchangeAccounts = await xprisma.exchangeAccount.findMany();
+  logger.info(`🏛️  Loaded ${exchangeAccounts.length} exchange account(s)`);
+
+  const bot = await xprisma.bot.custom.findFirst({
+    where: {
+      label: "default",
+    },
+    include: { exchangeAccount: true },
+  });
+  logger.info(`🤖 Default bot: ${bot ? bot.label : "none"}`);
+
+  const platform = new Platform(exchangeAccounts);
+
+  await platform.bootstrap();
+
+  return platform;
 }

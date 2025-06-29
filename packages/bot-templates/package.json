@@ -14,19 +14,17 @@
   "author": "bludnic",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@opentrader/eslint": "workspace:*",
     "@opentrader/tsconfig": "workspace:*",
     "@opentrader/types": "workspace:*",
     "@types/node": "^22.10.2",
-    "eslint": "8.57.0",
-    "typescript": "5.7.2",
-    "vitest": "^3.0.4"
+    "typescript": "5.8.3",
+    "vitest": "^3.2.3"
   },
   "dependencies": {
     "@opentrader/bot-processor": "workspace:*",
     "@opentrader/exchanges": "workspace:*",
     "@opentrader/logger": "workspace:*",
     "@opentrader/tools": "workspace:*",
-    "zod": "3.24.1"
+    "zod": "3.25.65"
   }
 }

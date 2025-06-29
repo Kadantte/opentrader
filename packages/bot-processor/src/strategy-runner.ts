@@ -16,10 +16,10 @@
  * Repository URL: https://github.com/bludnic/opentrader
  */
 import type { IExchange } from "@opentrader/exchanges";
-import type { MarketData, MarketId, MarketEventType } from "@opentrader/types";
+import type { MarketData, MarketId, StrategyEventType } from "@opentrader/types";
 import { BotControl } from "./bot-control.js";
 import { effectRunnerMap } from "./effect-runner.js";
-import { isEffect } from "./effects/index.js";
+import { isEffect, isNestedGenerator } from "./effects/index.js";
 import type { BotState, BotTemplate, IBotConfiguration, IBotControl, IStore, TBotContext } from "./types/index.js";
 import { createContext } from "./utils/createContext.js";
 
@@ -53,7 +53,7 @@ export class StrategyRunner<T extends IBotConfiguration> {
 
   async process(
     state: BotState,
-    event?: MarketEventType,
+    event?: StrategyEventType,
     market?: MarketData,
     markets: Record<MarketId, MarketData> = {},
   ) {
@@ -87,8 +87,10 @@ export class StrategyRunner<T extends IBotConfiguration> {
         const effectRunner = effectRunnerMap[effect.type];
 
         item = generator.next(await effectRunner(effect, context));
+      } else if (isNestedGenerator(item.value)) {
+        throw new Error("Nested generator detected. You must use yield* instead of yield");
       } else {
-        console.log(item.value);
+        console.log("Unsupported effect", item.value);
         throw new Error("Unsupported effect");
       }
     }

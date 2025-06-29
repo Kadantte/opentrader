@@ -15,16 +15,14 @@
   "author": "bludnic",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@opentrader/eslint": "workspace:*",
     "@opentrader/tsconfig": "workspace:*",
     "@opentrader/types": "workspace:*",
     "@types/node": "^22.10.2",
-    "eslint": "8.57.0",
-    "typescript": "5.7.2"
+    "typescript": "5.8.3"
   },
   "dependencies": {
     "@opentrader/db": "workspace:*",
     "@opentrader/tools": "workspace:*",
-    "ccxt": "4.4.41"
+    "ccxt": "4.4.91"
   }
 }
